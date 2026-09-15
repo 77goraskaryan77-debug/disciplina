@@ -921,8 +921,8 @@
   .tab-btn:hover{border-color:var(--green-line);color:var(--text)}
   .tab-btn.warn:hover{border-color:var(--warn);color:var(--warn)}
   /* profiles modal */
-  #profOv{position:fixed;inset:0;background:rgba(4,7,5,.6);z-index:210;display:none;place-items:center;padding:20px}
-  #profOv.open{display:grid}
+  #profOv,#impOv{position:fixed;inset:0;background:rgba(4,7,5,.6);z-index:210;display:none;place-items:center;padding:20px}
+  #profOv.open,#impOv.open{display:grid}
   .prof-modal{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--border);border-radius:16px;max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)}
   .prof-h{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px}
   .prof-h h3{margin:0;font-family:var(--serif);font-size:18px;font-weight:700}
@@ -1073,7 +1073,19 @@
   <button class="menu-item" data-goview="library">📚 Գրադարան</button>
   <button class="menu-item" data-goview="analytics">📊 Անալիտիկա</button>
   <button class="menu-item" data-goview="rewards">🎁 Նվերներ</button>
+  <button class="menu-item" id="importBtn">⬆️ Ներմուծել տվյալ</button>
 </aside>
+
+<!-- Import modal (migrate data from the artifact) -->
+<div id="impOv"><div class="prof-modal">
+  <div class="prof-h"><h3>⬆️ Ներմուծել տվյալ</h3><button class="x" id="impX">×</button></div>
+  <div class="prof-b">
+    <div style="font-size:12.5px;color:var(--faint);line-height:1.5">Արտիֆակտից Export-ած տեքստը տեղադրիր այստեղ (paste) ու սեղմիր «Ներմուծել»։ Կփոխարինի այս պրոֆիլի տվյալը։</div>
+    <textarea id="impTA" placeholder='{"weekStart":...}' style="width:100%;min-height:150px;background:#0c110e;border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:monospace;font-size:11px;padding:10px;outline:none"></textarea>
+    <button class="auth-btn" id="impDo" style="margin-top:0">Ներմուծել</button>
+    <div class="prof-msg" id="impMsg"></div>
+  </div>
+</div></div>
 
 <script>
 (function(){
@@ -3367,6 +3379,20 @@
   $("tabProfiles").onclick=openProfilesModal;
   $("profX").onclick=()=>$("profOv").classList.remove("open");
   $("profOv").addEventListener("click",e=>{if(e.target===$("profOv"))$("profOv").classList.remove("open");});
+  // ---- import (migrate data from the artifact) ----
+  $("importBtn").onclick=()=>{document.getElementById("menuPanel").classList.remove("open");document.getElementById("menuOv").classList.remove("open");$("impTA").value="";const m=$("impMsg");m.textContent="";m.className="prof-msg";$("impOv").classList.add("open");};
+  $("impX").onclick=()=>$("impOv").classList.remove("open");
+  $("impOv").addEventListener("click",e=>{if(e.target===$("impOv"))$("impOv").classList.remove("open");});
+  $("impDo").onclick=()=>{
+    const raw=($("impTA").value||"").trim(),m=$("impMsg");
+    if(!raw){m.className="prof-msg err";m.textContent="Տեղադրիր տվյալը";return;}
+    let obj;try{obj=JSON.parse(raw);}catch(e){m.className="prof-msg err";m.textContent="Սխալ ֆորմատ (JSON)";return;}
+    if(!obj||typeof obj!=="object"||!Array.isArray(obj.roles)){m.className="prof-msg err";m.textContent="Չհամապատասխանող տվյալ (roles չկա)";return;}
+    window.__app.setState(obj);
+    window.__persist(window.__app.getState());
+    m.className="prof-msg ok";m.textContent="Ներմուծվեց ✓";
+    setTimeout(()=>$("impOv").classList.remove("open"),800);
+  };
   setMode("signin");
 
   sb.auth.onAuthStateChange((_e,session)=>{
