@@ -1160,6 +1160,21 @@
   function mkPlacement(taskId,roleId,text,day,hour,dur){
     return {id:uid(),taskId,roleId,text,day,hour,dur:dur||1,weekStart:arguments[6]||iso(mondayOf(new Date())),done:false,note:"",subtasks:[],estMin:null,start:null,end:null};
   }
+  // ONLINE: a fresh profile (new client) starts CLEAN — generic empty roles, no demo tasks/books/goals/rewards
+  function blankState(){
+    const roles=[
+      {id:uid(),icon:"🎯",name:"Անձնական զարգացում",color:"var(--r-personal)",q2:true,tasks:[],recurring:[]},
+      {id:uid(),icon:"📚",name:"Ուսում",color:"var(--r-gsm)",q2:true,tasks:[],recurring:[]},
+      {id:uid(),icon:"🏃",name:"Սպորտ / Առողջություն",color:"var(--r-work)",q2:false,tasks:[],recurring:[]},
+      {id:uid(),icon:"❤️",name:"Ընտանիք / Ընկերներ",color:"var(--r-family)",q2:true,tasks:[],recurring:[]},
+    ];
+    return {weekStart:iso(mondayOf(new Date())),roles,placements:[],completedDates:[],bestStreak:0,
+      view:"today",challenges:[],activeChallenge:null,chalVersion:CHAL_VERSION,templates:[],
+      monthAnchor:iso(new Date(new Date().getFullYear(),new Date().getMonth(),1)),
+      yearAnchor:new Date().getFullYear(),yearMode:"heat",
+      goals:[],activeGoal:null,books:[],activeBook:null,libShelf:"reading",booksGoal:0,libGenre:"all",anPeriod:"week",
+      rewards:[],pointsSpent:0};
+  }
 
   /* ---------- Challenge template ---------- */
   const CHALLENGE_TEMPLATE=[
@@ -1263,7 +1278,7 @@
         return;
       }catch(e){ /* fall through to defaults */ }
     }
-    S=defaultState();migrate();   // new/empty profile → defaults (loader will create the row on first save)
+    S=blankState();migrate();   // new/empty profile → CLEAN start (no demo content)
   }
   function migrate(){
     const _cur=iso(mondayOf(new Date())),_extra=[];let _migrated=false;
