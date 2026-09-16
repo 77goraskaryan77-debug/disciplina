@@ -933,6 +933,8 @@
   .prof-row .pr-name{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .prof-row .pr-you{font-size:10px;color:var(--green-bright);background:var(--green-soft);border:1px solid var(--green-line);padding:1px 7px;border-radius:20px}
   .prof-row .pr-open{background:var(--raised);border:1px solid var(--green-line);color:var(--green-bright);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
+  .prof-row .pr-del{background:none;border:1px solid var(--border);color:var(--faint);border-radius:8px;width:32px;height:32px;font-size:14px;flex:0 0 auto}
+  .prof-row .pr-del:hover{border-color:var(--danger);color:var(--danger);background:#2a1a1c}
   .prof-sep{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--faint);margin-top:6px}
   .prof-create{display:flex;flex-direction:column;gap:8px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:11px;padding:12px}
   .prof-create input{background:#0c110e;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:9px 11px;outline:none}
@@ -3373,10 +3375,21 @@
     const body=$("profBody");body.innerHTML="Բեռնում...";
     const {data,error}=await sb.from('profiles').select('id,email,display_name').order('created_at');
     if(error){body.innerHTML='<div class="prof-msg err">'+esc(error.message)+'</div>';return;}
-    body.innerHTML=(data||[]).map(p=>'<div class="prof-row"><div class="pr-info"><div class="pr-name">'+esc(p.display_name||p.email)+(p.id===me.id?' <span class="pr-you">դու</span>':'')+'</div></div><button class="pr-open" data-open="'+p.id+'" data-lbl="'+esc(p.display_name||p.email)+'">Բացել</button></div>').join("")
+    body.innerHTML=(data||[]).map(p=>'<div class="prof-row"><div class="pr-info"><div class="pr-name">'+esc(p.display_name||p.email)+(p.id===me.id?' <span class="pr-you">դու</span>':'')+'</div></div><button class="pr-open" data-open="'+p.id+'" data-lbl="'+esc(p.display_name||p.email)+'">Բացել</button>'+(p.id===me.id?'':'<button class="pr-del" data-del="'+p.id+'" data-lbl="'+esc(p.display_name||p.email)+'" title="Ջնջել">🗑</button>')+'</div>').join("")
       +'<div class="prof-sep">Նոր պրոֆիլ ստեղծել</div><div class="prof-create"><input id="npEmail" placeholder="Email"><input id="npPass" placeholder="Գաղտնաբառ (min 6)" type="text"><input id="npName" placeholder="Անուն (ոչ պարտադիր)"><button id="npCreate">＋ Ստեղծել պրոֆիլ</button><div class="prof-msg" id="npMsg"></div></div>';
     body.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{$("profOv").classList.remove("open");openProfile(b.dataset.open,b.dataset.lbl,b.dataset.open===me.id);});
+    body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>deleteProfile(b.dataset.del,b.dataset.lbl));
     $("npCreate").onclick=createProfile;
+  }
+  async function deleteProfile(userId,label){
+    if(userId===me.id)return;
+    if(!confirm('Ջնջե՞լ պրոֆիլը՝ "'+label+'": Անդառնալի է — կջնջվի հաշիվն ու իր ամբողջ տվյալը:'))return;
+    try{
+      const {data:{session}}=await sb.auth.getSession();
+      const r=await fetch("/api/delete-user",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+(session&&session.access_token)},body:JSON.stringify({userId})});
+      if(r.ok){openProfilesModal();}
+      else{let e={};try{e=await r.json();}catch(_){}alert("Չհաջողվեց ջնջել: "+(e.error||("HTTP "+r.status))+"\n(Ստուգիր՝ Vercel-ում ավելացրա՞ծ ես SUPABASE env փոփոխականները)");}
+    }catch(err){alert("Սխալ: "+(err.message||err));}
   }
   async function createProfile(){
     const email=($("npEmail").value||"").trim(),pass=$("npPass").value||"",name=($("npName").value||"").trim(),m=$("npMsg");
