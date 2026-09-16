@@ -2733,6 +2733,11 @@
 
   function render(){
     const app=document.querySelector(".app");
+    // Չելենջ tab is only relevant to a profile that actually has challenges (i.e. the owner's own) — hide for blank/client profiles
+    const hasChal=!!(S.challenges&&S.challenges.length);
+    if(S.view==="challenge"&&!hasChal)S.view="today";
+    const chalTab=document.querySelector('.tabs [data-view="challenge"]');
+    if(chalTab)chalTab.style.display=hasChal?"":"none";
     app.dataset.view=S.view;
     document.querySelectorAll(".tabs .tab").forEach(b=>b.classList.toggle("active",b.dataset.view===S.view));
     document.querySelectorAll(".menu-item").forEach(b=>b.classList.toggle("active",b.dataset.goview===S.view));
