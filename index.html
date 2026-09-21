@@ -941,6 +941,71 @@
   .prof-create button{background:var(--green);color:#06130b;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:13px}
   .prof-msg{font-size:12.5px;min-height:16px}
   .prof-msg.err{color:var(--danger)}.prof-msg.ok{color:var(--green-bright)}
+
+  /* ============ MOBILE / ՀԵՌԱԽՈՍ (≤640px) ============ */
+  @media (max-width:640px){
+    html,body{overflow-x:hidden;-webkit-text-size-adjust:100%}
+
+    /* top auth bar */
+    #topAuthBar{height:38px;padding:0 10px;gap:8px}
+    #tabWho b{max-width:120px}
+    body.authed{padding-top:38px}
+    body.authed .app{height:calc(100vh - 38px)}
+    .tab-btn{padding:6px 9px;font-size:12px}
+
+    /* topbar wraps into rows */
+    .topbar{flex-wrap:wrap;gap:9px 8px;padding:9px 12px;align-items:center}
+    .brand{order:1}
+    .brand h1{font-size:18px}
+    .topbar .spacer{order:1;display:block;flex:1 1 auto}
+    #ptsStat{order:1}
+    .topbar .stat.week-only{order:1}
+    #menuBtn{order:1}
+    .tabs{order:2;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:3px}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{white-space:nowrap;flex:0 0 auto}
+    .week-nav{order:3}
+    .week-nav .wk{min-width:0;flex:1 1 auto}
+    #tplBtn{order:3}
+    #newWeek{order:3;padding:8px 12px;font-size:12.5px}
+    .wk-progress{display:none}
+    .stat .num{font-size:16px}
+    .stat .lbl{font-size:10px}
+
+    /* nudge */
+    .nudge{padding:9px 12px;font-size:12.5px}
+
+    /* MAIN: stack roles above calendar */
+    .main{flex-direction:column}
+    .roles{flex:0 0 auto;max-height:42vh;border-right:none;border-bottom:1px solid var(--border)}
+    .roles-scroll{padding:0 12px 14px}
+    .col-head{padding:10px 14px 8px}
+    .grid-wrap{flex:1 1 auto;min-height:46vh}
+
+    /* board paddings shrink */
+    #todayBoard,#goalsBoard,#monthBoard,#yearBoard,#libBoard,#anBoard,#rwBoard{padding:18px 14px 60px}
+    .chal-inner{padding:16px 14px 60px}
+
+    /* Today view */
+    .today-head{flex-wrap:wrap;gap:10px;align-items:flex-start;margin-bottom:18px}
+    .today-date{font-size:22px}
+    .today-prog{min-width:0;width:100%}
+    .today-prog-num{text-align:left}
+    .today-item{padding:14px 13px;gap:11px}
+    .today-text{font-size:14.5px}
+
+    /* single-column card grids */
+    .lib-grid,.rw-list{grid-template-columns:1fr}
+    .yr-months{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+
+    /* headers that were space-between → wrap */
+    .goals-head,.yr-head,.today-head{flex-wrap:wrap}
+
+    /* modals full-width */
+    .modal-ov,#profOv,#impOv{padding:12px}
+    .modal,.prof-modal{max-width:100%}
+    .menu-panel{width:86vw}
+  }
 </style>
 </head>
 <body>
