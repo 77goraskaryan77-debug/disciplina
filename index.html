@@ -2207,7 +2207,7 @@
     let days=`<button class="qa-chip${qaDay===null?' on':''}" data-qaday="none">Առանց օրվա</button>`;
     for(let d=0;d<7;d++){const dt=addDays(ws,d);days+=`<button class="qa-chip${qaDay===d?' on':''}" data-qaday="${d}">${DAYS[d]} ${dt.getDate()}</button>`;}
     document.getElementById("qaWhen").innerHTML=days;
-    const tw=document.getElementById("qaTimeWrap");tw.hidden=(qaDay===null);
+    const tw=document.getElementById("qaTimeWrap");tw.style.display=(qaDay===null)?"none":"flex";
     if(qaDay!==null){
       let opts="";for(let h=START_H;h<=END_H;h++){opts+=`<option value="${h}"${h===qaHour?' selected':''}>${String(h).padStart(2,"0")}:00</option>`;}
       document.getElementById("qaTime").innerHTML=opts;
