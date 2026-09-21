@@ -1,0 +1,4 @@
+# local-only, never publish
+TickTick/
+.DS_Store
+*.local
