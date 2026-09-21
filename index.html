@@ -942,6 +942,26 @@
   .prof-msg{font-size:12.5px;min-height:16px}
   .prof-msg.err{color:var(--danger)}.prof-msg.ok{color:var(--green-bright)}
 
+  /* ---------- Mobile bottom nav + quick-add (hidden on desktop) ---------- */
+  .bnav{display:none}
+  .mob-only{display:none}
+  .qa-ov{position:fixed;inset:0;background:rgba(4,7,5,.6);z-index:220;display:none;align-items:flex-end;justify-content:center}
+  .qa-ov.open{display:flex}
+  .qa-sheet{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px rgba(0,0,0,.5);max-height:86vh;overflow-y:auto}
+  .qa-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .qa-h b{font-family:var(--serif);font-size:17px}
+  .qa-h .x{background:none;border:none;color:var(--faint);font-size:22px;width:32px;height:32px;border-radius:8px}
+  #qaText{width:100%;background:#0c110e;border:1px solid var(--border);border-radius:11px;color:var(--text);font-size:16px;padding:13px;outline:none}
+  #qaText:focus{border-color:var(--green-line)}
+  .qa-lbl{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);margin:14px 0 8px}
+  .qa-roles,.qa-when{display:flex;flex-wrap:wrap;gap:7px}
+  .qa-chip{background:var(--raised);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:8px 13px;font-size:13px;font-weight:600}
+  .qa-chip.on{background:var(--green-soft);border-color:var(--green-line);color:var(--green-bright)}
+  .qa-time{display:flex;align-items:center;gap:10px;margin-top:12px}
+  #qaTime{flex:1;background:#0c110e;border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:15px;padding:10px;outline:none}
+  .qa-go{width:100%;background:var(--green);color:#06130b;border:none;border-radius:12px;padding:14px;font-weight:700;font-size:16px;margin-top:18px}
+  .qa-msg{font-size:13px;color:var(--danger);min-height:16px;margin-top:8px;text-align:center}
+
   /* ============ MOBILE / ՀԵՌԱԽՈՍ (≤640px) ============ */
   @media (max-width:640px){
     html,body{overflow-x:hidden;-webkit-text-size-adjust:100%}
@@ -1005,6 +1025,22 @@
     .modal-ov,#profOv,#impOv{padding:12px}
     .modal,.prof-modal{max-width:100%}
     .menu-panel{width:86vw}
+
+    /* bottom nav replaces top tabs */
+    .tabs{display:none}
+    #menuBtn{display:none}
+    body.authed .app{height:calc(100dvh - 38px - 64px)}
+    body.authed .bnav{display:flex}
+    .mob-only{display:flex}
+    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:55;
+      align-items:center;justify-content:space-around;
+      background:var(--panel);border-top:1px solid var(--border);
+      padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:2px}
+    .bnav-i{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--faint);font-size:10px;font-weight:600;flex:1 1 0;padding:4px 0;min-width:0}
+    .bnav-i .bi{font-size:20px;line-height:1}
+    .bnav-i.active{color:var(--green-bright)}
+    .bnav-fab{flex:0 0 auto;width:52px;height:52px;border-radius:50%;background:var(--green);color:#06130b;border:none;font-size:30px;font-weight:700;box-shadow:0 6px 20px rgba(52,216,120,.4);margin-top:-20px;display:grid;place-items:center;padding:0}
+    .bnav-fab:active{background:var(--green-bright)}
   }
 </style>
 </head>
@@ -1136,10 +1172,15 @@
 <div class="menu-overlay" id="menuOv"></div>
 <aside class="menu-panel" id="menuPanel" aria-hidden="true">
   <div class="menu-panel-h"><span>Մենյու</span><button class="mp-close" id="menuClose">×</button></div>
+  <button class="menu-item mob-only" data-goview="today">📋 Այսօր</button>
+  <button class="menu-item mob-only" data-goview="week">📅 Շաբաթ</button>
   <button class="menu-item" data-goview="goals">🎯 Նպատակներ</button>
   <button class="menu-item" data-goview="library">📚 Գրադարան</button>
+  <button class="menu-item mob-only" data-goview="month">🗓 Ամիս</button>
+  <button class="menu-item mob-only" data-goview="year">📆 Տարի</button>
   <button class="menu-item" data-goview="analytics">📊 Անալիտիկա</button>
   <button class="menu-item" data-goview="rewards">🎁 Նվերներ</button>
+  <button class="menu-item mob-only chal-menu" data-goview="challenge">🏆 Չելենջ</button>
   <button class="menu-item" id="importBtn">⬆️ Ներմուծել տվյալ</button>
 </aside>
 
@@ -1153,6 +1194,33 @@
     <div class="prof-msg" id="impMsg"></div>
   </div>
 </div></div>
+
+<!-- Mobile bottom navigation -->
+<nav class="bnav" id="bnav">
+  <button class="bnav-i" data-bview="today"><span class="bi">📋</span><span class="bl">Այսօր</span></button>
+  <button class="bnav-i" data-bview="week"><span class="bi">📅</span><span class="bl">Շաբաթ</span></button>
+  <button class="bnav-fab" id="bnavAdd" aria-label="Ավելացնել">＋</button>
+  <button class="bnav-i" data-bview="goals"><span class="bi">🎯</span><span class="bl">Նպատակ</span></button>
+  <button class="bnav-i" id="bnavMore"><span class="bi">☰</span><span class="bl">Ավելին</span></button>
+</nav>
+
+<!-- Quick-add bottom sheet -->
+<div class="qa-ov" id="qaOv">
+  <div class="qa-sheet">
+    <div class="qa-h"><b>Նոր գործ</b><button class="x" id="qaX">×</button></div>
+    <input id="qaText" placeholder="Ի՞նչ ես ուզում անել...">
+    <div class="qa-lbl">Ո՞ր դերում</div>
+    <div class="qa-roles" id="qaRoles"></div>
+    <div class="qa-lbl">Ե՞րբ (ընտրովի)</div>
+    <div class="qa-when" id="qaWhen"></div>
+    <div class="qa-time" id="qaTimeWrap" hidden>
+      <span class="qa-lbl" style="margin:0">Ժամ</span>
+      <select id="qaTime"></select>
+    </div>
+    <button class="qa-go" id="qaGo">Ավելացնել</button>
+    <div class="qa-msg" id="qaMsg"></div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -2119,6 +2187,44 @@
   const menuOv=document.getElementById("menuOv"),menuPanel=document.getElementById("menuPanel");
   function openMenu(){menuOv.classList.add("open");menuPanel.classList.add("open");}
   function closeMenu(){menuOv.classList.remove("open");menuPanel.classList.remove("open");}
+
+  /* ---------- Mobile quick-add ---------- */
+  let qaRole=null,qaDay=null,qaHour=9;
+  function openQuickAdd(prefDay){
+    qaRole=(S.roles[0]&&S.roles[0].id)||null;
+    qaDay=(prefDay===0||prefDay)?prefDay:null;
+    qaHour=9;
+    buildQuickAdd();
+    const t=document.getElementById("qaText");t.value="";
+    document.getElementById("qaMsg").textContent="";
+    document.getElementById("qaOv").classList.add("open");
+    setTimeout(()=>t.focus(),60);
+  }
+  function closeQuickAdd(){document.getElementById("qaOv").classList.remove("open");}
+  function buildQuickAdd(){
+    document.getElementById("qaRoles").innerHTML=S.roles.map(r=>`<button class="qa-chip${r.id===qaRole?' on':''}" data-qarole="${r.id}">${r.icon} ${esc(r.name)}</button>`).join("");
+    const ws=fromISO(S.weekStart);
+    let days=`<button class="qa-chip${qaDay===null?' on':''}" data-qaday="none">Առանց օրվա</button>`;
+    for(let d=0;d<7;d++){const dt=addDays(ws,d);days+=`<button class="qa-chip${qaDay===d?' on':''}" data-qaday="${d}">${DAYS[d]} ${dt.getDate()}</button>`;}
+    document.getElementById("qaWhen").innerHTML=days;
+    const tw=document.getElementById("qaTimeWrap");tw.hidden=(qaDay===null);
+    if(qaDay!==null){
+      let opts="";for(let h=START_H;h<=END_H;h++){opts+=`<option value="${h}"${h===qaHour?' selected':''}>${String(h).padStart(2,"0")}:00</option>`;}
+      document.getElementById("qaTime").innerHTML=opts;
+    }
+  }
+  function quickAddGo(){
+    const text=(document.getElementById("qaText").value||"").trim(),msg=document.getElementById("qaMsg");
+    if(!text){msg.textContent="Գրիր գործը";return;}
+    const r=roleById(qaRole);if(!r){msg.textContent="Ընտրիր դեր";return;}
+    const t={id:uid(),text,priority:"med",weekStart:S.weekStart};
+    r.tasks.push(t);
+    if(qaDay!==null){
+      const hr=+(document.getElementById("qaTime").value||qaHour);
+      S.placements.push(mkPlacement(t.id,qaRole,text,qaDay,hr,1,S.weekStart));
+    }
+    closeQuickAdd();render();
+  }
   document.getElementById("menuBtn").onclick=openMenu;
   document.getElementById("menuClose").onclick=closeMenu;
   menuOv.addEventListener("click",closeMenu);
@@ -2808,6 +2914,8 @@
     app.dataset.view=S.view;
     document.querySelectorAll(".tabs .tab").forEach(b=>b.classList.toggle("active",b.dataset.view===S.view));
     document.querySelectorAll(".menu-item").forEach(b=>b.classList.toggle("active",b.dataset.goview===S.view));
+    document.querySelectorAll(".bnav-i[data-bview]").forEach(b=>b.classList.toggle("active",b.dataset.bview===S.view));
+    document.querySelectorAll(".chal-menu").forEach(el=>{el.style.display=hasChal?"":"none";});
     renderTop();renderRoles();renderGrid();renderChallenge();renderToday();renderMonth();renderYear();renderGoals();renderLibrary();renderAnalytics();renderRewards();save();
     if(drawerId&&placeById(drawerId))refreshDrawer();
   }
@@ -2926,6 +3034,18 @@
     // ---- view tabs / challenge board ----
     const tab=e.target.closest(".tabs .tab");
     if(tab){S.view=tab.dataset.view;render();return;}
+    // ---- mobile bottom nav + quick-add ----
+    if(e.target===document.getElementById("qaOv")){closeQuickAdd();return;}
+    const bv=e.target.closest("[data-bview]");
+    if(bv){S.view=bv.dataset.bview;closeMenu();render();return;}
+    if(e.target.closest("#bnavMore")){openMenu();return;}
+    if(e.target.closest("#bnavAdd")){openQuickAdd();return;}
+    if(e.target.closest("#qaX")){closeQuickAdd();return;}
+    if(e.target.closest("#qaGo")){quickAddGo();return;}
+    const qar=e.target.closest("[data-qarole]");
+    if(qar){qaRole=qar.dataset.qarole;buildQuickAdd();return;}
+    const qad=e.target.closest("[data-qaday]");
+    if(qad){qaDay=qad.dataset.qaday==="none"?null:+qad.dataset.qaday;buildQuickAdd();return;}
     const ow=e.target.closest("[data-openweek]");
     if(ow){S.weekStart=ow.dataset.openweek;S.view="week";render();return;}
     const ym=e.target.closest("[data-ymode]");
