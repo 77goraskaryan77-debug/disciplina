@@ -1867,7 +1867,7 @@
         ev.innerHTML=`<div class="ev-top">
             <button class="ev-check" data-check="${p.id}" title="Արված"></button>
             ${(!isChal&&prio==="high")?'<span class="ev-pf">⚑</span>':''}
-            <span class="ev-title">${isChal?"🏆 ":isGoal?"🎯 ":isBook?"📖 ":""}${esc(text)}</span>
+            <span class="ev-title">${isChal?"🏆 ":isGoal?"🎯 ":isBook?(bookIcon(bookOf(p))+" "):""}${esc(text)}</span>
             <button class="ev-del" data-evdel="${p.id}" title="Հեռացնել գրաֆիկից">×</button>
           </div>
           ${showMeta?`<div class="ev-meta">
@@ -2106,7 +2106,7 @@
           <span class="today-grip">⋮⋮</span>
           <button class="today-check" data-check="${p.id}"></button>
           <span class="today-time">${fmtHour(p.hour)}</span>
-          <span class="today-text">${isChal?"🏆 ":isGoal?"🎯 ":isBook?"📖 ":""}${esc(text)}</span>
+          <span class="today-text">${isChal?"🏆 ":isGoal?"🎯 ":isBook?(bookIcon(bookOf(p))+" "):""}${esc(text)}</span>
           ${badges.length?`<span class="today-badges">${badges.join("")}</span>`:""}
         </div>`;
       });
