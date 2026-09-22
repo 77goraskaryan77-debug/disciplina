@@ -301,8 +301,12 @@
   .lib-addform input:focus{border-color:var(--green-line)}
   .lib-addform .la-title{flex:1;min-width:160px}
   .lib-addform .la-author{flex:1;min-width:120px}
-  .lib-addform .la-pages{width:90px}
+  .lib-addform .la-pages{width:110px}
+  .lib-addform .la-format{background:#0c110e;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:0 8px;outline:none}
   .lib-addform button{background:var(--green);color:#06130b;border:none;border-radius:8px;padding:0 15px;font-weight:700;font-size:13px}
+  .bd-format{display:flex;gap:8px}
+  .bd-fmt{flex:1;background:var(--raised);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px;font-size:13px;font-weight:600}
+  .bd-fmt.on{background:var(--green-soft);border-color:var(--green-line);color:var(--green-bright)}
   .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
   .book-card{background:var(--panel-2);border:1px solid var(--border-soft);border-radius:13px;padding:14px 15px;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:3px}
   .book-card:hover{border-color:var(--green-line);background:#18211c}
@@ -1481,6 +1485,7 @@
       if(!Array.isArray(b.sessions))b.sessions=[];
       if(b.pageGoal===undefined)b.pageGoal=null;
       if(b.pageMin===undefined)b.pageMin=null;
+      if(b.format===undefined)b.format="page"; // 'page' (measured in pages) or 'audio' (measured in minutes)
       if(b.genre===undefined)b.genre="";
       if(b.genre)b.genre=b.genre.replace(/\u0435/g,"\u0565").replace(/\u0441/g,"\u057D"); // normalize stray cyrillic letters in genre
       if(b.dateStarted===undefined)b.dateStarted=null;
@@ -1709,7 +1714,7 @@
       if(role.id==="personal"){
         S.books.filter(b=>b.status==="reading").forEach(b=>{
           th+=`<div class="book-chip" draggable="true" data-book="${b.id}" title="Կարդալու սեսիա · քաշիր գրաֆիկ">
-            <span class="grip">⋮⋮</span><span class="bk-text">📖 ${esc(b.title)}</span><span class="bk-pg">էջ ${b.currentPage}/${b.totalPages||"?"}</span>
+            <span class="grip">⋮⋮</span><span class="bk-text">${bookIcon(b)} ${esc(b.title)}</span><span class="bk-pg">${bookPos(b)}</span>
           </div>`;
         });
       }
@@ -1854,7 +1859,7 @@
         const hasEst=hasTime(p);
         const estMeta=hasEst?`<span class="b time">⏱ ${timeBadge(p)}</span>`:"";
         const metaExtra=(p.carriedTo?'<span class="b carr">↪ փոխանցված</span>':"")+(isChal?(late?'<span class="b late">⚠ ժամկետանց</span>':'<span class="b ontime">✓ ժամկետում</span>')
-          :(isBook?(p.done?`<span class="b">📖 ${p.fromPage}→${p.toPage} (${p.pagesRead} էջ)</span>`:`<span class="b">📖 էջ ${bookOf(p)?bookOf(p).currentPage:0}-ից</span>`):""));
+          :(isBook?(()=>{const bk=bookOf(p);return p.done?`<span class="b">${bookIcon(bk)} +${fmtU(bk,p.pagesRead)}</span>`:`<span class="b">${bookIcon(bk)} ${isAudio(bk)?fmtDur(bk?bk.currentPage:0):("էջ "+(bk?bk.currentPage:0))}-ից</span>`;})():""));
         const showMeta=isChal||isBook||p.carriedTo||p.dur>=2||nsub||noteG||hasEst;
         ev.innerHTML=`<div class="ev-top">
             <button class="ev-check" data-check="${p.id}" title="Արված"></button>
@@ -2090,7 +2095,7 @@
         const subs=drwSubs(p),noteV=drwNote(p);
         const nsub=subs.length,dsub=subs.filter(s=>s.done).length;
         const badges=[];
-        if(isBook)badges.push(`<span class="tb">📖 ${p.done?`${p.fromPage}→${p.toPage}`:`էջ ${bookOf(p)?bookOf(p).currentPage:0}`}</span>`);
+        if(isBook){const bk=bookOf(p);badges.push(`<span class="tb">${bookIcon(bk)} ${p.done?("+"+fmtU(bk,p.pagesRead)):(isAudio(bk)?fmtDur(bk?bk.currentPage:0):("էջ "+(bk?bk.currentPage:0)))}</span>`);}
         if(nsub)badges.push(`<span class="tb">☑ ${dsub}/${nsub}</span>`);
         if(noteV)badges.push(`<span class="tb">🗒</span>`);
         if(hasTime(p))badges.push(`<span class="tb time">⏱ ${timeBadge(p)}</span>`);
@@ -2111,7 +2116,7 @@
         return `<div class="cr-card" data-contread="${b.id}">
           <div class="cr-name">📖 ${esc(b.title)}</div>
           <div class="cr-bar"><i style="width:${bp}%"></i></div>
-          <div class="cr-meta">էջ ${b.currentPage}/${b.totalPages||"?"} · ${bp}%${st.etaDays!=null?` · 🏁 ~${st.etaDays}օր`:""}</div>
+          <div class="cr-meta">${bookPos(b)} · ${bp}%${st.etaDays!=null?` · 🏁 ~${st.etaDays}օր`:""}</div>
           <div class="cr-go">Կարդալ →</div>
         </div>`;
       }).join("");
@@ -2352,11 +2357,21 @@
   function bookOf(p){return S.books.find(b=>b.id===p.bookId);}
   function bookProgress(b){if(!b||!b.totalPages)return 0;return clamp(Math.round(b.currentPage/b.totalPages*100),0,100);}
   function bookPagesLeft(b){return b&&b.totalPages?Math.max(0,b.totalPages-b.currentPage):0;}
+  // audiobook support: same numeric fields (totalPages/currentPage/pageGoal/pageMin/session units) but interpreted as MINUTES for audio
+  function isAudio(b){return !!(b&&b.format==="audio");}
+  function uWord(b){return isAudio(b)?"րոպե":"էջ";}                       // unit word for input labels
+  function fmtU(b,n){return isAudio(b)?fmtDur(n||0):((n||0)+" էջ");}      // display a unit amount
+  function uReached(b){return isAudio(b)?"Հասա (րոպե)":"Հասա էջ";}
+  function uVerbPast(b){return isAudio(b)?"Լսեցիր":"Կարդացիր";}
+  function bookIcon(b){return isAudio(b)?"🎧":"📖";}
+  function bookPos(b){return isAudio(b)?(fmtDur(b.currentPage)+" / "+(b.totalPages?fmtDur(b.totalPages):"?")):("էջ "+b.currentPage+"/"+(b.totalPages||"?"));}
   function starStr(n){n=Math.round(n||0);return "★".repeat(Math.min(n,10));}
   function booksReadInYear(y){const cy=new Date().getFullYear();return S.books.filter(b=>b.status==="read"&&(b.dateFinished?fromISO(b.dateFinished).getFullYear()===y:y===cy)).length;}
   function readingStats(year){
-    let pages=0,minutes=0;const byMonth=Array(12).fill(0);
-    S.books.forEach(b=>(b.sessions||[]).forEach(s=>{if(!s.date)return;const d=fromISO(s.date);if(d.getFullYear()===year){pages+=s.pages||0;minutes+=s.minutes||0;byMonth[d.getMonth()]+=s.pages||0;}}));
+    let pages=0,minutes=0,audioMin=0;const byMonth=Array(12).fill(0);
+    S.books.forEach(b=>{const au=isAudio(b);(b.sessions||[]).forEach(s=>{if(!s.date)return;const d=fromISO(s.date);if(d.getFullYear()===year){
+      if(au){audioMin+=s.pages||0;}else{pages+=s.pages||0;minutes+=s.minutes||0;byMonth[d.getMonth()]+=s.pages||0;}
+    }});});
     const booksRead=booksReadInYear(year);
     const rated=S.books.filter(b=>b.status==="read"&&(b.rating||0)>0);
     const avgRating=rated.length?Math.round(rated.reduce((a,b)=>a+b.rating,0)/rated.length*10)/10:0;
@@ -2364,8 +2379,9 @@
     const daysElapsed=isCur?Math.max(1,Math.round((now-new Date(year,0,1))/86400000)+1):365;
     const perWeek=Math.round(pages/(daysElapsed/7));
     const allTimeBooks=S.books.filter(b=>b.status==="read").length;
-    const allTimePages=S.books.reduce((a,b)=>a+((b.sessions||[]).reduce((x,s)=>x+(s.pages||0),0)),0);
-    return {pages,minutes,byMonth,booksRead,avgRating,perWeek,allTimeBooks,allTimePages};
+    const allTimePages=S.books.reduce((a,b)=>a+(isAudio(b)?0:(b.sessions||[]).reduce((x,s)=>x+(s.pages||0),0)),0);
+    const allTimeAudio=S.books.reduce((a,b)=>a+(isAudio(b)?(b.sessions||[]).reduce((x,s)=>x+(s.pages||0),0):0),0);
+    return {pages,minutes,audioMin,byMonth,booksRead,avgRating,perWeek,allTimeBooks,allTimePages,allTimeAudio};
   }
   // record / undo a reading session tied to a book placement
   // roll back any history session this placement created (used before re-saving or undoing)
@@ -2440,29 +2456,30 @@
   function paceSectionHtml(b){
     const st=bookStats(b);
     if(!st.count&&!b.pageGoal)return "";  // nothing to show yet
+    const au=isAudio(b),goalTxt=au?fmtDur(b.pageGoal):(b.pageGoal+" էջ");
     if(b.status==="read"){
       const days=st.first?daysBetweenISO(st.first,b.dateFinished||st.last)+1:null;
-      const bits=[`<div class="bd-stat"><div class="v">${st.totalPages}</div><div class="l">Ընդամենը էջ</div></div>`,
+      const bits=[`<div class="bd-stat"><div class="v">${au?fmtDur(st.totalPages):st.totalPages}</div><div class="l">${au?"Ընդ. լսած":"Ընդամենը էջ"}</div></div>`,
         `<div class="bd-stat"><div class="v">${st.count}</div><div class="l">Սեսիա</div></div>`];
       if(days)bits.push(`<div class="bd-stat"><div class="v">${days}</div><div class="l">Օրում</div></div>`);
-      if(st.pph!=null)bits.push(`<div class="bd-stat"><div class="v">${fmtPace(st.pph)}</div><div class="l">Էջ/ժ</div></div>`);
-      if(st.totalMin)bits.push(`<div class="bd-stat"><div class="v">${fmtDur(st.totalMin)}</div><div class="l">Ընդ. ժամ</div></div>`);
+      if(!au&&st.pph!=null)bits.push(`<div class="bd-stat"><div class="v">${fmtPace(st.pph)}</div><div class="l">Էջ/ժ</div></div>`);
+      if(!au&&st.totalMin)bits.push(`<div class="bd-stat"><div class="v">${fmtDur(st.totalMin)}</div><div class="l">Ընդ. ժամ</div></div>`);
       return `<div class="bd-sec"><div class="bd-sec-t">📈 Ամփոփում</div><div class="bd-statgrid">${bits.join("")}</div></div>`;
     }
     // reading (or want with a target)
     const bits=[];
     if(st.count){
-      bits.push(`<div class="bd-stat"><div class="v">${fmtPace(st.perDay)}</div><div class="l">Էջ/օր (միջին)</div></div>`);
-      if(st.pph!=null)bits.push(`<div class="bd-stat"><div class="v">${fmtPace(st.pph)}</div><div class="l">Էջ/ժ</div></div>`);
+      bits.push(`<div class="bd-stat"><div class="v">${au?fmtDur(Math.round(st.perDay)):fmtPace(st.perDay)}</div><div class="l">${au?"Օր. միջին":"Էջ/օր (միջին)"}</div></div>`);
+      if(!au&&st.pph!=null)bits.push(`<div class="bd-stat"><div class="v">${fmtPace(st.pph)}</div><div class="l">Էջ/ժ</div></div>`);
     }
-    bits.push(`<div class="bd-stat"><div class="v">${st.left}</div><div class="l">Մնացել է էջ</div></div>`);
+    bits.push(`<div class="bd-stat"><div class="v">${au?fmtDur(st.left):st.left}</div><div class="l">${au?"Մնացել է":"Մնացել է էջ"}</div></div>`);
     let eta="";
     if(st.etaDays!=null){
       eta=`<div class="bd-eta">🏁 Այս տեմպով կվերջացնես <b>~${st.etaDays} օրում</b> · մինչև <b>${shortDate(st.etaDate)}</b>`
-        +(st.etaByGoal!=null?`<span class="sub">🎯 Թիրախով (${b.pageGoal} էջ/օր ամեն օր)՝ ~${st.etaByGoal} օր · մինչև ${shortDate(st.etaGoalDate)}</span>`:"")
+        +(st.etaByGoal!=null?`<span class="sub">🎯 Թիրախով (${goalTxt}/օր ամեն օր)՝ ~${st.etaByGoal} օր · մինչև ${shortDate(st.etaGoalDate)}</span>`:"")
         +`</div>`;
     }else if(st.etaByGoal!=null){
-      eta=`<div class="bd-eta">🎯 Թիրախով (${b.pageGoal} էջ/օր ամեն օր) կվերջացնես <b>~${st.etaByGoal} օրում</b> · մինչև <b>${shortDate(st.etaGoalDate)}</b><span class="sub">Կարդա մի քանի անգամ՝ որ իրական տեմպով էլ կանխատեսեմ</span></div>`;
+      eta=`<div class="bd-eta">🎯 Թիրախով (${goalTxt}/օր ամեն օր) կվերջացնես <b>~${st.etaByGoal} օրում</b> · մինչև <b>${shortDate(st.etaGoalDate)}</b><span class="sub">${au?"Լսիր":"Կարդա"} մի քանի անգամ՝ որ իրական տեմպով էլ կանխատեսեմ</span></div>`;
     }else if(!st.count){
       eta=`<div class="bd-eta" style="background:var(--raised);border-color:var(--border);color:var(--muted)">Կարդա մի քանի սեսիա՝ որ տեմպդ ու վերջանալու օրը կանխատեսեմ 📈</div>`;
     }
@@ -2578,9 +2595,9 @@
     else cards=books.map(b=>{
       const pct=bookProgress(b);
       let bottom;
-      if(b.status==="read")bottom=`<div class="bc-meta"><span class="bc-stars">${starStr(b.rating)||"—"}</span><span>${b.totalPages||"?"} էջ</span></div>`;
-      else if(b.status==="reading"){const st=bookStats(b);bottom=`<div class="bc-bar"><i style="width:${pct}%"></i></div><div class="bc-meta"><span>էջ ${b.currentPage}/${b.totalPages||"?"}</span><span class="bc-pct">${pct}%</span></div>`+(st.etaDays!=null?`<div class="bc-eta">🏁 ~${st.etaDays} օր մնաց · մինչև ${shortDate(st.etaDate)}</div>`:"");}
-      else bottom=`<div class="bc-meta"><span>${b.totalPages||"?"} էջ</span></div>`;
+      if(b.status==="read")bottom=`<div class="bc-meta"><span class="bc-stars">${starStr(b.rating)||"—"}</span><span>${b.totalPages?fmtU(b,b.totalPages):"?"}</span></div>`;
+      else if(b.status==="reading"){const st=bookStats(b);bottom=`<div class="bc-bar"><i style="width:${pct}%"></i></div><div class="bc-meta"><span>${bookPos(b)}</span><span class="bc-pct">${pct}%</span></div>`+(st.etaDays!=null?`<div class="bc-eta">🏁 ~${st.etaDays} օր մնաց · մինչև ${shortDate(st.etaDate)}</div>`:"");}
+      else bottom=`<div class="bc-meta"><span>${b.totalPages?fmtU(b,b.totalPages):"?"}</span></div>`;
       return `<div class="book-card" data-book="${b.id}">
         <div class="bc-top"><div class="bc-cover">${shelfEmoji(b.status)}</div>
           <div class="bc-info"><div class="bc-title">${esc(b.title)}</div>${b.author?`<div class="bc-author">${esc(b.author)}</div>`:""}${b.genre?`<div class="bc-genre">🏷 ${esc(b.genre)}</div>`:""}</div></div>
@@ -2598,7 +2615,8 @@
     const addform=shelf==="stats"?"":`<div class="lib-addform">
         <input class="la-title" id="labTitle" placeholder="Գրքի վերնագիր...">
         <input class="la-author" id="labAuthor" placeholder="Հեղինակ (ոչ պարտադիր)">
-        <input class="la-pages" id="labPages" type="number" min="0" placeholder="էջ">
+        <select class="la-format" id="labFormat"><option value="page">📖 Գիրք</option><option value="audio">🎧 Աուդիո</option></select>
+        <input class="la-pages" id="labPages" type="number" min="0" placeholder="էջ / րոպե">
         <button id="labAdd">＋ Ավելացնել</button>
       </div>`;
     const body=shelf==="stats"?statsPanelHtml():`<div class="lib-grid">${cards}</div>`;
@@ -2611,12 +2629,12 @@
   }
   function statsPanelHtml(){
     const y=new Date().getFullYear(),st=readingStats(y);
-    if(!st.pages&&!st.booksRead&&!st.allTimeBooks&&!st.allTimePages)
+    if(!st.pages&&!st.audioMin&&!st.booksRead&&!st.allTimeBooks&&!st.allTimePages&&!st.allTimeAudio)
       return `<div class="lib-empty">Դեռ վիճակագրություն չկա։ Կարդա ու նշիր արածդ՝ ստեղ կհայտնվի 📊</div>`;
     const tiles=[
       `<div class="bd-stat"><div class="v">${st.booksRead}</div><div class="l">📚 Գիրք (${y})</div></div>`,
       `<div class="bd-stat"><div class="v">${st.pages}</div><div class="l">📄 Էջ (${y})</div></div>`,
-      `<div class="bd-stat"><div class="v">${st.minutes?fmtDur(st.minutes):"—"}</div><div class="l">⏱ Ժամ (${y})</div></div>`,
+      `<div class="bd-stat"><div class="v">${st.audioMin?fmtDur(st.audioMin):"—"}</div><div class="l">🎧 Աուդիո (${y})</div></div>`,
       `<div class="bd-stat"><div class="v">${st.perWeek}</div><div class="l">📈 Էջ/շաբաթ</div></div>`,
       `<div class="bd-stat"><div class="v">${st.avgRating?st.avgRating+" ⭐":"—"}</div><div class="l">Միջին գնահատ.</div></div>`,
     ].join("");
@@ -2627,6 +2645,7 @@
       <div class="bd-sec"><div class="bd-sec-t">⭐ Ընդհանուր (բոլոր տարիներ)</div><div class="bd-statgrid">
         <div class="bd-stat"><div class="v">${st.allTimeBooks}</div><div class="l">Կարդացած գիրք</div></div>
         <div class="bd-stat"><div class="v">${st.allTimePages}</div><div class="l">Ընդամենը էջ</div></div>
+        <div class="bd-stat"><div class="v">${st.allTimeAudio?fmtDur(st.allTimeAudio):"—"}</div><div class="l">Ընդ. աուդիո</div></div>
       </div></div>`;
   }
   function bookDetailHtml(b){
@@ -2635,7 +2654,9 @@
     const stars=Array.from({length:10},(_,i)=>`<span class="st ${i<(b.rating||0)?"on":""}" data-star="${i+1}">★</span>`).join("");
     const sesRows=(b.sessions||[]).slice().reverse().map(s=>{
       const d=fromISO(s.date);
-      return `<div class="bd-ses"><span class="bs-date">${d.getDate()} ${MONTHS[d.getMonth()]}</span><span class="bs-pg">էջ ${s.from}→${s.to} · ${s.pages} էջ</span>${s.minutes!=null?`<span class="bs-min">${fmtDur(s.minutes)}</span>`:""}</div>`;
+      return isAudio(b)
+        ? `<div class="bd-ses"><span class="bs-date">${d.getDate()} ${MONTHS[d.getMonth()]}</span><span class="bs-pg">${fmtDur(s.from)}→${fmtDur(s.to)} · +${fmtDur(s.pages)}</span></div>`
+        : `<div class="bd-ses"><span class="bs-date">${d.getDate()} ${MONTHS[d.getMonth()]}</span><span class="bs-pg">էջ ${s.from}→${s.to} · ${s.pages} էջ</span>${s.minutes!=null?`<span class="bs-min">${fmtDur(s.minutes)}</span>`:""}</div>`;
     }).join("");
     const totPages=(b.sessions||[]).reduce((a,s)=>a+(s.pages||0),0);
     return `<button class="gd-back" id="bdBack">‹ Գրադարան</button>
@@ -2645,15 +2666,19 @@
           <div class="bd-title" id="bdTitle">${esc(b.title)}</div>
           <div class="bd-author ${b.author?"":""}" id="bdAuthor">${b.author?esc(b.author):"+ հեղինակ"}</div>
           <div class="bd-status">${stBtns}</div>
-          ${b.status!=="want"?`<div class="bd-prog"><span class="bd-pct">${pct}%</span><div class="bd-bar"><i style="width:${pct}%"></i></div><span class="bd-pages">${b.currentPage}/${b.totalPages||"?"} էջ</span></div>`:""}
+          ${b.status!=="want"?`<div class="bd-prog"><span class="bd-pct">${pct}%</span><div class="bd-bar"><i style="width:${pct}%"></i></div><span class="bd-pages">${bookPos(b)}</span></div>`:""}
         </div>
       </div>
 
       <div class="bd-sec">
-        <div class="bd-sec-t">Գիրքը</div>
-        <div class="bd-fields">
-          <div class="bd-field"><span>Ընդամենը էջ</span><input type="number" min="0" id="bdTotal" value="${b.totalPages||""}"></div>
-          <div class="bd-field"><span>Ընթացիկ էջ</span><input type="number" min="0" id="bdCur" value="${b.currentPage||0}"></div>
+        <div class="bd-sec-t">${bookIcon(b)} Տեսակ</div>
+        <div class="bd-format">
+          <button class="bd-fmt ${!isAudio(b)?"on":""}" data-fmt="page">📖 Գիրք (էջ)</button>
+          <button class="bd-fmt ${isAudio(b)?"on":""}" data-fmt="audio">🎧 Աուդիո (ժամ)</button>
+        </div>
+        <div class="bd-fields" style="margin-top:12px">
+          <div class="bd-field"><span>${isAudio(b)?"Ընդ. րոպե":"Ընդամենը էջ"}</span><input type="number" min="0" id="bdTotal" value="${b.totalPages||""}"></div>
+          <div class="bd-field"><span>${isAudio(b)?"Ընթ. րոպե":"Ընթացիկ էջ"}</span><input type="number" min="0" id="bdCur" value="${b.currentPage||0}"></div>
         </div>
       </div>
 
@@ -2669,7 +2694,7 @@
       <div class="bd-sec">
         <div class="bd-sec-t">🎯 Օրական թիրախ</div>
         <div class="bd-fields">
-          <div class="bd-field"><span>Թիրախ (էջ/օր)</span><input type="number" min="0" id="bdGoal" value="${b.pageGoal||""}"></div>
+          <div class="bd-field"><span>Թիրախ (${uWord(b)}/օր)</span><input type="number" min="0" id="bdGoal" value="${b.pageGoal||""}"></div>
           <div class="bd-field"><span>Մինիմում</span><input type="number" min="0" id="bdMin" value="${b.pageMin||""}"></div>
         </div>
         <div class="bd-target-note">Երբ կարդալու թասքում ≥ թիրախ ես կարդում՝ done-ը ոսկեգույն է ✨, ≥ մինիմում՝ սովորական։</div>
@@ -2685,7 +2710,7 @@
       </div>
 
       <div class="bd-sec">
-        <div class="bd-sec-t">📊 Կարդալու պատմություն ${b.sessions&&b.sessions.length?`· ${b.sessions.length} սեսիա · ${totPages} էջ`:""}</div>
+        <div class="bd-sec-t">📊 ${isAudio(b)?"Լսելու":"Կարդալու"} պատմություն ${b.sessions&&b.sessions.length?`· ${b.sessions.length} սեսիա · ${fmtU(b,totPages)}`:""}</div>
         <div class="bd-sessions">${sesRows||'<div class="bd-ses-empty">Դեռ սեսիա չկա։ Կարդալու թասքը քաշիր գրաֆիկ ու նշիր որ էջ հասար։</div>'}</div>
       </div>
 
@@ -2705,6 +2730,7 @@
     $("bdCur").addEventListener("change",render);
     $("bdGoal").addEventListener("input",()=>{b.pageGoal=parseInt($("bdGoal").value,10)||null;save();});
     $("bdMin").addEventListener("input",()=>{b.pageMin=parseInt($("bdMin").value,10)||null;save();});
+    document.querySelectorAll("[data-fmt]").forEach(btn=>btn.onclick=()=>{b.format=btn.dataset.fmt==="audio"?"audio":"page";render();});
     $("bdReview").addEventListener("input",()=>{b.review=$("bdReview").value;save();});
     $("bdInsight").addEventListener("input",()=>{b.insight=$("bdInsight").value;save();});
     document.querySelectorAll("#bdStars .st").forEach(st=>st.onclick=()=>{const v=+st.dataset.star;b.rating=(b.rating===v?0:v);render();});
@@ -2735,7 +2761,8 @@
     const t=(document.getElementById("labTitle").value||"").trim();if(!t)return;
     const author=(document.getElementById("labAuthor").value||"").trim();
     const pages=parseInt(document.getElementById("labPages").value,10)||0;
-    S.books.push({id:uid(),title:t,author,totalPages:pages,currentPage:0,status:S.libShelf||"want",rating:0,review:"",insight:"",dateStarted:(S.libShelf==="reading"?todayISO():null),dateFinished:null,sessions:[],pageGoal:null,pageMin:null});
+    const fmtSel=document.getElementById("labFormat");const format=(fmtSel&&fmtSel.value==="audio")?"audio":"page";
+    S.books.push({id:uid(),title:t,author,format,totalPages:pages,currentPage:0,status:S.libShelf||"want",rating:0,review:"",insight:"",dateStarted:(S.libShelf==="reading"?todayISO():null),dateFinished:null,sessions:[],pageGoal:null,pageMin:null});
     render();
   }
 
@@ -3370,36 +3397,37 @@
     const p=placeById(drawerId);if(!p){closeDrawer();return;}
     const b=bookOf(p);if(!b){closeDrawer();return;}
     const role=roleById("personal");
+    const au=isAudio(b);
     const tot=b.totalPages||0;
     // if this placement already logged a session, show the page it started from (so re-editing is consistent)
     const existing=p.sessionId?b.sessions.find(s=>s.id===p.sessionId):null;
     const cur=existing?existing.from:b.currentPage;
     if(p.toPage==null&&existing)p.toPage=existing.to;
-    const tgtNote=(b.pageGoal||b.pageMin)?`Օրվա թիրախ՝ ${b.pageGoal||"—"} էջ${b.pageMin?` · մինիմում ${b.pageMin}`:""}`:"";
+    const tgtNote=(b.pageGoal||b.pageMin)?`Օրվա թիրախ՝ ${b.pageGoal?fmtU(b,b.pageGoal):"—"}${b.pageMin?` · մինիմում ${fmtU(b,b.pageMin)}`:""}`:"";
     drawer.innerHTML=`
       <div class="drw-head">
         <span class="rdot" style="background:${role?role.color:'var(--green)'}"></span>
-        <div class="t"><h3>📖 ${esc(b.title)}</h3><div class="rn">${esc(b.author||"")}${b.author?" · ":""}${cur}/${tot||"?"} էջ</div></div>
+        <div class="t"><h3>${bookIcon(b)} ${esc(b.title)}</h3><div class="rn">${esc(b.author||"")}${b.author?" · ":""}${au?(fmtDur(cur)+"/"+(tot?fmtDur(tot):"?")):(cur+"/"+(tot||"?")+" էջ")}</div></div>
         <button class="drw-close" id="drwClose">×</button>
       </div>
       <div class="drw-body">
         <div class="fld">
-          <label>📖 Կարդալ</label>
-          <div class="rd-prev">Նախորդ անգամ հասել էիր՝ <b>էջ ${cur}</b>${tot?` / ${tot}`:""}</div>
+          <label>${bookIcon(b)} ${au?"Լսել":"Կարդալ"}</label>
+          <div class="rd-prev">Մինչ այժմ՝ <b>${au?fmtDur(cur):("էջ "+cur)}</b>${tot?` / ${au?fmtDur(tot):tot}`:""}</div>
           <div class="rd-pagerow">
-            <div class="est-box" style="flex:1"><span>Հասա էջ</span><input type="number" id="toPageIn" min="0" ${tot?`max="${tot}"`:""} placeholder="${cur}" value="${p.toPage!=null?p.toPage:""}"></div>
+            <div class="est-box" style="flex:1"><span>${au?"Լսեցի այսօր (րոպե)":"Հասա էջ"}</span><input type="number" id="toPageIn" min="0" ${(!au&&tot)?`max="${tot}"`:""} placeholder="${au?"օր. 40":cur}" value="${au?(p.toPage!=null?(p.toPage-cur):""):(p.toPage!=null?p.toPage:"")}"></div>
           </div>
           <div class="rd-live" id="rdLive"></div>
           ${tgtNote?`<div class="bd-target-note">🎯 ${tgtNote}</div>`:""}
         </div>
-        <div class="fld">
+        ${au?"":`<div class="fld">
           <label>⏱ Ժամանակ</label>
           <div class="se-row">
             <div class="est-box"><span>Սկիզբ</span><input type="text" id="startIn" placeholder="1:30" value="${p.start||""}"></div>
             <div class="est-box"><span>Ավարտ</span><input type="text" id="endIn" placeholder="2:45" value="${p.end||""}"></div>
             <div class="est-box dur-box"><span>Տևողություն</span><b id="durOut">${fmtDur(actualMin(p))}</b></div>
           </div>
-        </div>
+        </div>`}
         <div class="fld">
           <label>Ժամ գրաֆիկում</label>
           <div class="time-ctl">
@@ -3422,29 +3450,33 @@
     function updLive(){
       const to=p.toPage;
       if(to==null){live.textContent="";live.className="rd-live";return;}
-      const pages=to-cur;
-      if(pages<0){live.textContent="Էջը փոքր է նախորդից 🤔";live.className="rd-live warn";}
-      else if(b.pageMin&&pages<b.pageMin){live.textContent=`Կարդացիր ${pages} էջ · մինիմումը ${b.pageMin} է — թասքը դեռ ավարտված չի`;live.className="rd-live warn";}
-      else{live.textContent=`Կարդացիր ${pages} էջ`+(b.pageGoal&&pages>=b.pageGoal?" · 🎯 թիրախը ծածկեցիր ✨":(b.pageMin?" · ✓ մինիմումը ծածկեցիր":""));live.className="rd-live";}
+      const amt=to-cur,amtTxt=au?fmtDur(amt):(amt+" էջ"),verb=au?"Լսեցիր":"Կարդացիր";
+      if(amt<0){live.textContent=au?"Բացասական է 🤔":"Էջը փոքր է նախորդից 🤔";live.className="rd-live warn";}
+      else if(b.pageMin&&amt<b.pageMin){live.textContent=`${verb} ${amtTxt} · մինիմումը ${fmtU(b,b.pageMin)} է — թասքը դեռ ավարտված չի`;live.className="rd-live warn";}
+      else{live.textContent=`${verb} ${amtTxt}`+(b.pageGoal&&amt>=b.pageGoal?" · 🎯 թիրախը ծածկեցիր ✨":(b.pageMin?" · ✓ մինիմումը ծածկեցիր":""));live.className="rd-live";}
     }
     toIn.addEventListener("input",()=>{
       const v=toIn.value.trim();
-      let to=v===""?null:parseInt(v,10);
-      // can't read past the last page
-      if(to!=null&&b.totalPages&&to>b.totalPages){to=b.totalPages;toIn.value=to;}
+      if(v===""){p.toPage=null;updLive();save();return;}
+      let n=parseInt(v,10);if(isNaN(n))n=0;
+      let to=au?(cur+Math.max(0,n)):n;             // audio: input is minutes listened today (delta)
+      if(b.totalPages&&to>b.totalPages){to=b.totalPages;toIn.value=au?Math.max(0,to-cur):to;}
       p.toPage=to;updLive();save();
     });
     updLive();
-    function updDur(){p.start=(document.getElementById("startIn").value||"").trim()||null;p.end=(document.getElementById("endIn").value||"").trim()||null;const o=document.getElementById("durOut");if(o)o.textContent=fmtDur(actualMin(p));save();}
-    document.getElementById("startIn").addEventListener("input",updDur);
-    document.getElementById("endIn").addEventListener("input",updDur);
+    if(!au){
+      const si=document.getElementById("startIn"),ei=document.getElementById("endIn");
+      const updDur=()=>{p.start=(si.value||"").trim()||null;p.end=(ei.value||"").trim()||null;const o=document.getElementById("durOut");if(o)o.textContent=fmtDur(actualMin(p));save();};
+      si.addEventListener("input",updDur);
+      ei.addEventListener("input",updDur);
+    }
     document.getElementById("startSel").onchange=ev=>{p.hour=clamp(+ev.target.value,START_H,END_H-p.dur+1);save();render();};
     document.getElementById("durMinus").onclick=()=>{p.dur=clamp(p.dur-0.5,0.5,END_H-p.hour+1);document.getElementById("durVal").textContent=p.dur;save();render();};
     document.getElementById("durPlus").onclick=()=>{p.dur=clamp(p.dur+0.5,0.5,END_H-p.hour+1);document.getElementById("durVal").textContent=p.dur;save();render();};
     document.getElementById("noteIn").addEventListener("input",()=>{p.note=document.getElementById("noteIn").value;save();});
     document.getElementById("bookDoneBtn").onclick=()=>{
       if(p.done){undoReadingSession(p);render();buildBookDrawer();return;}
-      if(p.toPage==null||p.toPage<cur){live.textContent="Գրիր որ էջին հասար 📖";live.className="rd-live warn";toIn.focus();return;}
+      if(p.toPage==null||p.toPage<cur){live.textContent=au?"Գրիր քանի րոպե լսեցիր 🎧":"Գրիր որ էջին հասար 📖";live.className="rd-live warn";toIn.focus();return;}
       recordReadingSession(p);
       // below the daily minimum → progress saved but task stays open (not "done")
       if(!p.done){render();buildBookDrawer();return;}
