@@ -921,8 +921,15 @@
   .tab-btn:hover{border-color:var(--green-line);color:var(--text)}
   .tab-btn.warn:hover{border-color:var(--warn);color:var(--warn)}
   /* profiles modal */
-  #profOv,#impOv{position:fixed;inset:0;background:rgba(4,7,5,.6);z-index:210;display:none;place-items:center;padding:20px}
-  #profOv.open,#impOv.open{display:grid}
+  #profOv,#impOv,#bkOv{position:fixed;inset:0;background:rgba(4,7,5,.6);z-index:210;display:none;place-items:center;padding:20px}
+  #profOv.open,#impOv.open,#bkOv.open{display:grid}
+  .bk-row{display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:11px;padding:11px 12px}
+  .bk-row .bk-info{flex:1;min-width:0}
+  .bk-row .bk-when{font-size:13px;font-weight:600}
+  .bk-row .bk-sum{font-size:11.5px;color:var(--faint);margin-top:2px}
+  .bk-row .bk-restore{background:var(--raised);border:1px solid var(--green-line);color:var(--green-bright);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;flex:0 0 auto}
+  .bk-row .bk-restore:hover{background:var(--green-soft)}
+  .bk-empty{color:var(--faint);font-size:13px;text-align:center;padding:20px}
   .prof-modal{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--border);border-radius:16px;max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)}
   .prof-h{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px}
   .prof-h h3{margin:0;font-family:var(--serif);font-size:18px;font-weight:700}
@@ -1181,6 +1188,7 @@
   <button class="menu-item" data-goview="analytics">📊 Անալիտիկա</button>
   <button class="menu-item" data-goview="rewards">🎁 Նվերներ</button>
   <button class="menu-item mob-only chal-menu" data-goview="challenge">🏆 Չելենջ</button>
+  <button class="menu-item" id="backupsBtn">🛟 Պահուստ (backup)</button>
   <button class="menu-item" id="importBtn">⬆️ Ներմուծել տվյալ</button>
 </aside>
 
@@ -1192,6 +1200,15 @@
     <textarea id="impTA" placeholder='{"weekStart":...}' style="width:100%;min-height:150px;background:#0c110e;border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:monospace;font-size:11px;padding:10px;outline:none"></textarea>
     <button class="auth-btn" id="impDo" style="margin-top:0">Ներմուծել</button>
     <div class="prof-msg" id="impMsg"></div>
+  </div>
+</div></div>
+
+<!-- Backup / version history modal -->
+<div id="bkOv"><div class="prof-modal">
+  <div class="prof-h"><h3>🛟 Պահուստ</h3><button class="x" id="bkX">×</button></div>
+  <div class="prof-b">
+    <div style="font-size:12.5px;color:var(--faint);line-height:1.5">Ավտոմատ պահված տարբերակներ։ Ընտրիր մեկը՝ վերականգնելու։ Վերականգնելուց առաջ ընթացիկ վիճակը նույնպես ինքնաշխատ պահվում է (հետ-շրջելի է)։</div>
+    <div id="bkBody" style="display:flex;flex-direction:column;gap:8px">Բեռնում...</div>
   </div>
 </div></div>
 
@@ -3505,7 +3522,8 @@
     const snap=JSON.stringify(S);
     clearTimeout(saveTimer);
     saveTimer=setTimeout(async()=>{
-      try{await sb.from('states').upsert({user_id:targetId,data:JSON.parse(snap),updated_at:new Date().toISOString()});}
+      try{await sb.from('states').upsert({user_id:targetId,data:JSON.parse(snap),updated_at:new Date().toISOString()});
+        snapshotState(false);}
       catch(e){console.error('save failed',e);}
     },700);
   };
@@ -3519,12 +3537,75 @@
     const st=await loadState(userId);
     window.__app.setState(st);
     if(!st)window.__persist(window.__app.getState());
+    snapshotState(false); // capture the good state right after opening (protects against later overwrites)
     const who=$("tabWho");
     if(isSelf){who.classList.remove("viewing");who.innerHTML='👤 <b>'+esc(label)+'</b>';}
     else{who.classList.add("viewing");who.innerHTML='👁 Դիտում ես՝ <b>'+esc(label)+'</b>';
       const b=document.createElement("button");b.className="tab-btn";b.style.marginLeft="10px";b.style.padding="3px 9px";b.textContent="← իմ դաշտ";
       b.onclick=()=>openProfile(me.id,me.email,true);who.appendChild(b);}
   }
+
+  /* ---------- Auto-backup / version history ---------- */
+  function bkCounts(S){
+    if(!S||!Array.isArray(S.roles))return{roles:0,tasks:0,plac:0,goals:0,books:0,chal:0};
+    return {
+      roles:S.roles.length,
+      tasks:S.roles.reduce((n,r)=>n+((r.tasks||[]).length),0),
+      plac:(S.placements||[]).length,
+      goals:(S.goals||[]).length,
+      books:(S.books||[]).length,
+      chal:(S.challenges||[]).length
+    };
+  }
+  function stateMeaningful(S){
+    const c=bkCounts(S);
+    return !!(c.tasks||c.plac||c.goals||c.books||c.chal||(S&&(S.rewards||[]).length)||(c.roles&&c.roles>4));
+  }
+  async function snapshotState(force){
+    if(!targetId)return;
+    try{
+      const S=window.__app.getState();
+      if(!stateMeaningful(S))return;
+      if(!force){
+        const {data:last}=await sb.from('state_versions').select('created_at').eq('user_id',targetId).order('created_at',{ascending:false}).limit(1);
+        if(last&&last[0]&&(Date.now()-new Date(last[0].created_at).getTime()<10*60*1000))return;
+      }
+      await sb.from('state_versions').insert({user_id:targetId,data:S});
+      const {data:all}=await sb.from('state_versions').select('id').eq('user_id',targetId).order('created_at',{ascending:false});
+      if(all&&all.length>30){await sb.from('state_versions').delete().in('id',all.slice(30).map(r=>r.id));}
+    }catch(e){/* table may not exist yet; ignore silently */}
+  }
+  window.__openBackups=async function(){
+    document.getElementById("menuPanel").classList.remove("open");
+    document.getElementById("menuOv").classList.remove("open");
+    const ov=$("bkOv"),body=$("bkBody");
+    ov.classList.add("open");body.innerHTML="Բեռնում...";
+    if(!targetId){body.innerHTML='<div class="bk-empty">Մուտք գործիր նախ</div>';return;}
+    const {data,error}=await sb.from('state_versions').select('id,created_at,data').eq('user_id',targetId).order('created_at',{ascending:false}).limit(30);
+    if(error){body.innerHTML='<div class="bk-empty">Սխալ՝ '+esc(error.message)+'<br><br>(Հնարավոր է՝ state_versions աղյուսակը դեռ ստեղծված չէ)</div>';return;}
+    if(!data||!data.length){body.innerHTML='<div class="bk-empty">Դեռ պահուստ չկա։<br>Օգտագործիր հավելվածը՝ ինքնաշխատ կստեղծվի։</div>';return;}
+    body.innerHTML=data.map(v=>{
+      const c=bkCounts(v.data),when=new Date(v.created_at).toLocaleString();
+      const sum=c.roles+' դեր · '+c.tasks+' գործ · '+c.plac+' գրաֆիկում · '+c.goals+' նպատ · '+c.books+' գիրք';
+      return '<div class="bk-row"><div class="bk-info"><div class="bk-when">'+esc(when)+'</div><div class="bk-sum">'+esc(sum)+'</div></div><button class="bk-restore" data-bkrestore="'+v.id+'">Վերականգնել</button></div>';
+    }).join("");
+    body.querySelectorAll("[data-bkrestore]").forEach(b=>b.onclick=()=>restoreBackup(b.dataset.bkrestore));
+  };
+  async function restoreBackup(id){
+    try{
+      const {data,error}=await sb.from('state_versions').select('data').eq('id',id).maybeSingle();
+      if(error||!data){alert("Չհաջողվեց բեռնել");return;}
+      const c=bkCounts(data.data);
+      if(!confirm('Վերականգնե՞լ այս տարբերակը՝ '+c.roles+' դեր, '+c.tasks+' գործ, '+c.goals+' նպատակ, '+c.books+' գիրք։\nԸնթացիկ վիճակը կպահվի որպես նոր պահուստ (հետ-շրջելի է)։'))return;
+      await snapshotState(true);
+      window.__app.setState(data.data);
+      window.__persist(window.__app.getState());
+      $("bkOv").classList.remove("open");
+    }catch(e){alert("Սխալ: "+(e.message||e));}
+  }
+  $("bkX").onclick=()=>$("bkOv").classList.remove("open");
+  $("bkOv").addEventListener("click",e=>{if(e.target===$("bkOv"))$("bkOv").classList.remove("open");});
+  $("backupsBtn").onclick=()=>window.__openBackups();
 
   function setMode(m){
     mode=m;
