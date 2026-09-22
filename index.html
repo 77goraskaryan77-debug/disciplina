@@ -1188,7 +1188,7 @@
   <button class="menu-item" data-goview="analytics">📊 Անալիտիկա</button>
   <button class="menu-item" data-goview="rewards">🎁 Նվերներ</button>
   <button class="menu-item mob-only chal-menu" data-goview="challenge">🏆 Չելենջ</button>
-  <button class="menu-item" id="backupsBtn">🛟 Պահուստ (backup)</button>
+  <button class="menu-item" id="backupsBtn">🕓 Պատմություն (ավտո-պահուստ)</button>
   <button class="menu-item" id="importBtn">⬆️ Ներմուծել տվյալ</button>
 </aside>
 
@@ -1205,9 +1205,9 @@
 
 <!-- Backup / version history modal -->
 <div id="bkOv"><div class="prof-modal">
-  <div class="prof-h"><h3>🛟 Պահուստ</h3><button class="x" id="bkX">×</button></div>
+  <div class="prof-h"><h3>🕓 Պատմություն</h3><button class="x" id="bkX">×</button></div>
   <div class="prof-b">
-    <div style="font-size:12.5px;color:var(--faint);line-height:1.5">Ավտոմատ պահված տարբերակներ։ Ընտրիր մեկը՝ վերականգնելու։ Վերականգնելուց առաջ ընթացիկ վիճակը նույնպես ինքնաշխատ պահվում է (հետ-շրջելի է)։</div>
+    <div style="font-size:12.5px;color:var(--faint);line-height:1.5">Ամեն փոփոխությունից հետո ինքնաշխատ պահվում է (ձեռքով բան պետք չէ)։ Ընտրիր տարբերակ՝ հետ վերականգնելու։ Վերականգնելուց առաջ ընթացիկ վիճակը նույնպես պահվում է (հետ-շրջելի է)։</div>
     <div id="bkBody" style="display:flex;flex-direction:column;gap:8px">Բեռնում...</div>
   </div>
 </div></div>
@@ -3515,7 +3515,7 @@
   const sb=window.supabase.createClient(URL,KEY);
   const $=id=>document.getElementById(id);
   const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  let me=null,targetId=null,mode="signin",saveTimer=null;
+  let me=null,targetId=null,mode="signin",saveTimer=null,lastSnapStr=null,lastSnapAt=0;
 
   window.__persist=function(S){
     if(!targetId)return;
@@ -3537,6 +3537,7 @@
     const st=await loadState(userId);
     window.__app.setState(st);
     if(!st)window.__persist(window.__app.getState());
+    lastSnapStr=null;lastSnapAt=0; // reset trackers for the newly opened profile
     snapshotState(false); // capture the good state right after opening (protects against later overwrites)
     const who=$("tabWho");
     if(isSelf){who.classList.remove("viewing");who.innerHTML='👤 <b>'+esc(label)+'</b>';}
@@ -3566,13 +3567,19 @@
     try{
       const S=window.__app.getState();
       if(!stateMeaningful(S))return;
+      const cur=JSON.stringify(S);
       if(!force){
-        const {data:last}=await sb.from('state_versions').select('created_at').eq('user_id',targetId).order('created_at',{ascending:false}).limit(1);
-        if(last&&last[0]&&(Date.now()-new Date(last[0].created_at).getTime()<10*60*1000))return;
+        if(cur===lastSnapStr)return;                 // unchanged since our last snapshot → skip
+        if(Date.now()-lastSnapAt<60*1000)return;     // throttle ~1 min
       }
+      // don't duplicate the latest stored version (covers reloads / profile switches)
+      const {data:last}=await sb.from('state_versions').select('data').eq('user_id',targetId).order('created_at',{ascending:false}).limit(1);
+      if(last&&last[0]&&JSON.stringify(last[0].data)===cur){lastSnapStr=cur;lastSnapAt=Date.now();return;}
       await sb.from('state_versions').insert({user_id:targetId,data:S});
+      lastSnapStr=cur;lastSnapAt=Date.now();
+      // keep newest 50 per user
       const {data:all}=await sb.from('state_versions').select('id').eq('user_id',targetId).order('created_at',{ascending:false});
-      if(all&&all.length>30){await sb.from('state_versions').delete().in('id',all.slice(30).map(r=>r.id));}
+      if(all&&all.length>50){await sb.from('state_versions').delete().in('id',all.slice(50).map(r=>r.id));}
     }catch(e){/* table may not exist yet; ignore silently */}
   }
   window.__openBackups=async function(){
